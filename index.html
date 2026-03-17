@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sigma-Kappa-IV — "The Unbecoming"</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0708;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    font-family: 'Cormorant Garamond', serif;
+    cursor: crosshair;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(10,7,8,0.6) 100%);
+  }
+
+  .title-card {
+    position: fixed;
+    bottom: 32px;
+    left: 40px;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeInSlow 4s 2s forwards;
+  }
+
+  .title-card .civ-label {
+    font-size: 10px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: rgba(189, 154, 112, 0.5);
+    margin-bottom: 6px;
+  }
+
+  .title-card .title {
+    font-size: 28px;
+    font-weight: 300;
+    font-style: italic;
+    color: rgba(189, 154, 112, 0.85);
+    letter-spacing: 2px;
+    line-height: 1.2;
+  }
+
+  .title-card .subtitle {
+    font-size: 12px;
+    font-weight: 300;
+    color: rgba(189, 154, 112, 0.35);
+    margin-top: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .glyph-top {
+    position: fixed;
+    top: 28px;
+    right: 36px;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeInSlow 3s 3.5s forwards;
+    text-align: right;
+  }
+
+  .glyph-top .line {
+    font-size: 11px;
+    letter-spacing: 5px;
+    color: rgba(140, 80, 70, 0.4);
+    font-weight: 300;
+  }
+
+  @keyframes fadeInSlow {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .scan-line {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(10,7,8,0.03) 3px,
+      rgba(10,7,8,0.03) 4px
+    );
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="overlay"></div>
+<div class="scan-line"></div>
+
+<div class="title-card">
+  <div class="civ-label">Sigma-Kappa-IV · Cultural Archive</div>
+  <div class="title">The Unbecoming</div>
+  <div class="subtitle">Ritual observance — Cycle of Dissolution & Return</div>
+</div>
+
+<div class="glyph-top">
+  <div class="line">◈ ARTIFACT 7741 ◈</div>
+  <div class="line" style="margin-top:4px; font-size:9px; color:rgba(140,80,70,0.25);">GENERATIVE · LIVING MEDIUM</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+let time = 0;
+let particles = [];
+let spines = [];
+let mouseX = 0.5, mouseY = 0.5;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+document.addEventListener('mousemove', e => {
+  mouseX = e.clientX / W;
+  mouseY = e.clientY / H;
+});
+
+// Color palette — deep volcanic, gold, blood, void
+const palette = {
+  void: [10, 7, 8],
+  ember: [140, 40, 25],
+  blood: [120, 22, 18],
+  gold: [189, 154, 112],
+  bone: [200, 185, 165],
+  deep: [30, 12, 20],
+  teal: [40, 80, 85],
+};
+
+function rgba(c, a) {
+  return `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(c1, c2, t) {
+  return [lerp(c1[0],c2[0],t), lerp(c1[1],c2[1],t), lerp(c1[2],c2[2],t)];
+}
+
+// Central mandala structure — the "architecture of intensity"
+function drawMandala(t) {
+  const layers = 7;
+  const breathe = Math.sin(t * 0.15) * 0.3 + 0.7;
+  const pulse = Math.sin(t * 0.4) * 0.5 + 0.5;
+
+  for (let layer = 0; layer < layers; layer++) {
+    const baseRadius = (50 + layer * 38) * breathe;
+    const segments = 8 + layer * 4;
+    const rotOffset = t * (0.02 + layer * 0.005) * (layer % 2 === 0 ? 1 : -1);
+
+    const layerProgress = layer / layers;
+    const color = lerpColor(palette.ember, palette.gold, layerProgress);
+    const alpha = (0.12 + pulse * 0.08) * (1 - layerProgress * 0.3);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotOffset);
+
+    // Draw geometric ring
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const wobble = Math.sin(angle * 3 + t * 0.3 + layer) * (4 + layer * 2);
+      const r = baseRadius + wobble;
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = rgba(color, alpha);
+    ctx.lineWidth = 0.5 + pulse * 0.5;
+    ctx.stroke();
+
+    // Inner connection lines — web of knowledge
+    if (layer > 1 && layer < 5) {
+      for (let i = 0; i < segments; i += 2) {
+        const angle = (i / segments) * Math.PI * 2;
+        const r1 = baseRadius * 0.6;
+        const r2 = baseRadius * 1.1;
+        const sway = Math.sin(t * 0.2 + i + layer) * 8;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * r1 + sway, Math.sin(angle) * r1);
+        ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2 + sway);
+        ctx.strokeStyle = rgba(palette.gold, alpha * 0.4);
+        ctx.lineWidth = 0.3;
+        ctx.stroke();
+      }
+    }
+
+    // Dissolution nodes — points where structure breaks
+    if (layer > 2) {
+      const dissolvePhase = (Math.sin(t * 0.1 + layer * 1.5) + 1) / 2;
+      for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * Math.PI * 2 + rotOffset;
+        const r = baseRadius;
+        const x = Math.cos(angle) * r;
+        const y = Math.sin(angle) * r;
+
+        if (dissolvePhase > 0.5) {
+          const scatter = (dissolvePhase - 0.5) * 30;
+          const dx = Math.cos(angle) * scatter;
+          const dy = Math.sin(angle) * scatter;
+          ctx.beginPath();
+          ctx.arc(x + dx, y + dy, 1 + dissolvePhase * 2, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(palette.ember, alpha * dissolvePhase);
+          ctx.fill();
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+}
+
+// Rising particles — the "renewal" element
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = (Math.random() - 0.5) * W * 0.8;
+    this.y = H * 0.5 + Math.random() * H * 0.3;
+    this.vx = (Math.random() - 0.5) * 0.3;
+    this.vy = -0.2 - Math.random() * 0.8;
+    this.life = 1;
+    this.decay = 0.001 + Math.random() * 0.003;
+    this.size = 0.5 + Math.random() * 2;
+    this.colorType = Math.random();
+  }
+  update() {
+    // Spiral toward center as they rise
+    const dx = -this.x * 0.0005;
+    const dy = this.vy;
+    this.vx += dx + Math.sin(time * 0.3 + this.y * 0.01) * 0.02;
+    this.x += this.vx;
+    this.y += dy;
+    this.life -= this.decay;
+    if (this.life <= 0 || this.y < -H * 0.5) this.reset();
+  }
+  draw() {
+    const screenX = cx + this.x;
+    const screenY = this.y;
+    let color;
+    if (this.colorType < 0.3) color = palette.ember;
+    else if (this.colorType < 0.6) color = palette.gold;
+    else if (this.colorType < 0.8) color = palette.teal;
+    else color = palette.bone;
+
+    const a = this.life * 0.6;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = rgba(color, a);
+    ctx.fill();
+
+    // Trail
+    ctx.beginPath();
+    ctx.moveTo(screenX, screenY);
+    ctx.lineTo(screenX - this.vx * 8, screenY - this.vy * 8);
+    ctx.strokeStyle = rgba(color, a * 0.3);
+    ctx.lineWidth = this.size * 0.5;
+    ctx.stroke();
+  }
+}
+
+for (let i = 0; i < 200; i++) {
+  const p = new Particle();
+  p.y = Math.random() * H;
+  particles.push(p);
+}
+
+// Spine structures — the "obsession" architecture
+class Spine {
+  constructor(baseAngle) {
+    this.baseAngle = baseAngle;
+    this.segments = 20 + Math.floor(Math.random() * 15);
+    this.length = 120 + Math.random() * 180;
+    this.phase = Math.random() * Math.PI * 2;
+    this.speed = 0.01 + Math.random() * 0.02;
+    this.thickness = 0.3 + Math.random() * 0.7;
+  }
+  draw(t) {
+    const breathe = Math.sin(t * 0.12 + this.phase) * 0.2 + 0.8;
+    const intensity = (Math.sin(t * 0.08 + this.phase * 2) + 1) / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    ctx.beginPath();
+    for (let i = 0; i <= this.segments; i++) {
+      const frac = i / this.segments;
+      const r = frac * this.length * breathe;
+      const wave = Math.sin(frac * Math.PI * 3 + t * this.speed * 10 + this.phase) * (15 + frac * 20);
+      const angle = this.baseAngle + wave * 0.01;
+      const x = Math.cos(angle) * r + Math.sin(t * 0.1 + frac * 5) * wave * 0.3;
+      const y = Math.sin(angle) * r + Math.cos(t * 0.1 + frac * 5) * wave * 0.3;
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    const color = lerpColor(palette.blood, palette.gold, intensity);
+    ctx.strokeStyle = rgba(color, 0.08 + intensity * 0.06);
+    ctx.lineWidth = this.thickness;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+for (let i = 0; i < 24; i++) {
+  spines.push(new Spine((i / 24) * Math.PI * 2));
+}
+
+// Central eye / void — the "psychological depth"
+function drawVoid(t) {
+  const pulse = Math.sin(t * 0.2) * 0.3 + 0.7;
+  const innerPulse = Math.sin(t * 0.35) * 0.5 + 0.5;
+
+  // Outer glow
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80 * pulse);
+  grad.addColorStop(0, rgba(palette.ember, 0.15 * innerPulse));
+  grad.addColorStop(0.4, rgba(palette.deep, 0.1));
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx - 100, cy - 100, 200, 200);
+
+  // Core
+  const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 20 * pulse);
+  coreGrad.addColorStop(0, rgba(palette.gold, 0.3 * innerPulse));
+  coreGrad.addColorStop(0.5, rgba(palette.ember, 0.15));
+  coreGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 25 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The "pupil" — absolute void
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5 + innerPulse * 3, 0, Math.PI * 2);
+  ctx.fillStyle = rgba(palette.void, 0.95);
+  ctx.fill();
+}
+
+// Orbiting glyphs — suggestion of language/notation
+function drawGlyphs(t) {
+  const glyphCount = 12;
+  const orbitRadius = Math.min(W, H) * 0.38;
+  const drift = Math.sin(t * 0.05) * 20;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  for (let i = 0; i < glyphCount; i++) {
+    const angle = (i / glyphCount) * Math.PI * 2 + t * 0.008;
+    const r = orbitRadius + drift + Math.sin(t * 0.1 + i * 2) * 15;
+    const x = Math.cos(angle) * r;
+    const y = Math.sin(angle) * r * 0.6; // elliptical
+
+    const visibility = (Math.sin(t * 0.15 + i * 0.8) + 1) / 2;
+
+    if (visibility > 0.3) {
+      const alpha = (visibility - 0.3) * 0.3;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle + t * 0.02);
+
+      // Abstract glyph shapes
+      const type = i % 4;
+      ctx.strokeStyle = rgba(palette.gold, alpha);
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      if (type === 0) {
+        ctx.moveTo(-6, -6); ctx.lineTo(6, 0); ctx.lineTo(-6, 6);
+        ctx.moveTo(-2, -3); ctx.lineTo(-2, 3);
+      } else if (type === 1) {
+        ctx.arc(0, 0, 5, 0, Math.PI * 1.5);
+        ctx.moveTo(0, -5); ctx.lineTo(0, 5);
+      } else if (type === 2) {
+        ctx.moveTo(-5, 0); ctx.lineTo(5, 0);
+        ctx.moveTo(0, -5); ctx.lineTo(3, 5); ctx.lineTo(-3, 5); ctx.closePath();
+      } else {
+        ctx.moveTo(-4, -5); ctx.bezierCurveTo(-4, 5, 4, 5, 4, -5);
+        ctx.moveTo(-2, 0); ctx.lineTo(2, 0);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
+// Background atmosphere
+function drawBackground(t) {
+  // Very slow gradient shift
+  const hueShift = Math.sin(t * 0.02) * 10;
+  const bg = ctx.createRadialGradient(
+    cx + Math.sin(t * 0.03) * 50,
+    cy + Math.cos(t * 0.02) * 30,
+    0,
+    cx, cy, Math.max(W, H) * 0.7
+  );
+  bg.addColorStop(0, `rgba(${25 + hueShift}, 10, 18, 1)`);
+  bg.addColorStop(0.5, 'rgba(12, 8, 10, 1)');
+  bg.addColorStop(1, 'rgba(8, 5, 6, 1)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// Transformation wave — periodic dissolution
+function drawTransformationWave(t) {
+  const wavePhase = (t * 0.06) % (Math.PI * 2);
+  const waveIntensity = Math.pow(Math.sin(wavePhase), 8);
+
+  if (waveIntensity > 0.01) {
+    const radius = waveIntensity * Math.max(W, H) * 0.4;
+    const grad = ctx.createRadialGradient(cx, cy, radius * 0.8, cx, cy, radius);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.5, rgba(palette.ember, waveIntensity * 0.08));
+    grad.addColorStop(0.8, rgba(palette.gold, waveIntensity * 0.04));
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function animate() {
+  time += 0.016;
+
+  drawBackground(time);
+  drawTransformationWave(time);
+
+  // Draw spines (obsession architecture)
+  for (const spine of spines) spine.draw(time);
+
+  // Draw mandala (governance/structure)
+  drawMandala(time);
+
+  // Draw void (depth)
+  drawVoid(time);
+
+  // Draw particles (renewal/rising)
+  for (const p of particles) {
+    p.update();
+    p.draw();
+  }
+
+  // Draw orbiting glyphs
+  drawGlyphs(time);
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
